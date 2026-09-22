@@ -1,3 +1,31 @@
+function disableNonPresentationActions() {
+  const orderGroup = document.getElementById("sidebarOrdersGroup");
+  const orderToggle = document.getElementById("sidebarOrdersToggle");
+  const queueButton = document.getElementById("sidebarQueueButton");
+  const orderLogsButton = document.getElementById("sidebarOrderLogsButton");
+
+  [orderGroup, orderToggle, queueButton, orderLogsButton].forEach((element) => {
+    if (!element) return;
+    element.classList.add("disabled");
+    element.setAttribute("aria-disabled", "true");
+    if (element.tagName === "BUTTON") {
+      element.disabled = true;
+    }
+  });
+
+  const customerTabButtonsToDisable = [
+    document.getElementById("showOrderTabButton"),
+    document.getElementById("showCustomerStatusTabButton"),
+  ];
+
+  customerTabButtonsToDisable.forEach((button) => {
+    if (!button) return;
+    button.disabled = true;
+    button.classList.add("disabled");
+    button.setAttribute("aria-disabled", "true");
+  });
+}
+
 // ===== VIEW SWITCHING (Cashier <-> Owner) =====
 const customerView = document.getElementById("customerView");
 const adminView = document.getElementById("adminView");
@@ -17,18 +45,42 @@ switchToCustomerButton.addEventListener("click", () => {
 // ===== CUSTOMER TABS (Create Order <-> Order Status) =====
 const customerOrderTab = document.getElementById("customerOrderTab");
 const customerStatusTab = document.getElementById("customerStatusTab");
+const customerFeedbackTab = document.getElementById("customerFeedbackTab");
 const showOrderTabButton = document.getElementById("showOrderTabButton");
 const showCustomerStatusTabButton = document.getElementById("showCustomerStatusTabButton");
+const showCustomerFeedbackTabButton = document.getElementById("showCustomerFeedbackTabButton");
+const customerTabButtons = [showOrderTabButton, showCustomerStatusTabButton, showCustomerFeedbackTabButton];
 
-showOrderTabButton.addEventListener("click", () => {
-  customerOrderTab.hidden = false;
-  customerStatusTab.hidden = true;
-});
+function activateCustomerTab(tabName) {
+  const tabs = {
+    order: customerOrderTab,
+    status: customerStatusTab,
+    feedback: customerFeedbackTab,
+  };
 
-showCustomerStatusTabButton.addEventListener("click", () => {
-  customerOrderTab.hidden = true;
-  customerStatusTab.hidden = false;
+  customerOrderTab.hidden = tabName !== "order";
+  customerStatusTab.hidden = tabName !== "status";
+  customerFeedbackTab.hidden = tabName !== "feedback";
+
+  customerTabButtons.forEach((button) => {
+    button.classList.toggle("active", button.id === {
+      order: "showOrderTabButton",
+      status: "showCustomerStatusTabButton",
+      feedback: "showCustomerFeedbackTabButton",
+    }[tabName]);
+  });
+}
+
+showOrderTabButton?.addEventListener("click", (event) => {
+  event.preventDefault();
+  return;
 });
+showCustomerStatusTabButton?.addEventListener("click", (event) => {
+  event.preventDefault();
+  return;
+});
+showCustomerFeedbackTabButton?.addEventListener("click", () => activateCustomerTab("feedback"));
+activateCustomerTab("feedback");
 
 // ===== OWNER SIDEBAR NAVIGATION =====
 const adminShell = document.getElementById("adminShell");
@@ -75,12 +127,13 @@ function showAdminPage(pageKey, buttonClicked) {
   adminShell.classList.remove("sidebar-open");
 }
 
-document.getElementById("sidebarDashboardButton").addEventListener("click", (e) => showAdminPage("dashboard", e.currentTarget));
-document.getElementById("sidebarQueueButton").addEventListener("click", (e) => showAdminPage("queue", e.currentTarget));
-document.getElementById("sidebarOrderLogsButton").addEventListener("click", (e) => showAdminPage("orderLogs", e.currentTarget));
+document.getElementById("sidebarDashboardButton")?.addEventListener("click", (e) => showAdminPage("dashboard", e.currentTarget));
+document.getElementById("sidebarQueueButton")?.addEventListener("click", (e) => showAdminPage("queue", e.currentTarget));
+document.getElementById("sidebarOrderLogsButton")?.addEventListener("click", (e) => showAdminPage("orderLogs", e.currentTarget));
 document.getElementById("sidebarSalesAnalyticsButton").addEventListener("click", (e) => showAdminPage("salesAnalytics", e.currentTarget));
 document.getElementById("sidebarProductSalesButton").addEventListener("click", (e) => showAdminPage("productSales", e.currentTarget));
 document.getElementById("sidebarFeedbackAnalysisButton").addEventListener("click", (e) => showAdminPage("feedback", e.currentTarget));
+showAdminPage("salesAnalytics", document.getElementById("sidebarSalesAnalyticsButton"));
 
 document.getElementById("dashboardScannerButton").addEventListener("click", () => {
   showAdminPage("queue", document.getElementById("sidebarQueueButton"));
@@ -111,10 +164,63 @@ document.getElementById("dashboardFeedbackLink").addEventListener("click", () =>
   showAdminPage("feedback", document.getElementById("sidebarFeedbackAnalysisButton"));
 });
 
+// ===== CUSTOMER FEEDBACK FORM =====
+const customerFeedbackForm = document.getElementById("customerFeedbackForm");
+const customerFeedbackMessage = document.getElementById("customerFeedbackMessage");
+
+customerFeedbackForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const branchSelect = document.getElementById("feedbackBranchSelect");
+  const commentInput = document.getElementById("feedbackComment");
+  const selectedRating = document.querySelector('input[name="customerRating"]:checked');
+  const rating = Number(selectedRating ? selectedRating.value : 5);
+  const branchKey = branchSelect && branchSelect.value ? branchSelect.value : "plaridel";
+  const branchLabel = {
+    plaridel: "Plaridel",
+    malolos: "Malolos",
+  }[branchKey] || "Plaridel";
+
+  const localNow = new Date();
+  const localDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().split("T")[0];
+
+  const newEntry = {
+    feedbackId: Date.now(),
+    customerId: "demo-customer",
+    orderId: "completed-order-1",
+    rating,
+    comment: (commentInput ? commentInput.value.trim() : "") || "Customer shared a positive experience.",
+    date: localDate,
+    branch: branchLabel,
+  };
+
+  let feedbackAccepted = false;
+  if (typeof window.addCustomerFeedbackEntry === "function") {
+    feedbackAccepted = window.addCustomerFeedbackEntry(newEntry, branchKey);
+  }
+
+  if (customerFeedbackMessage) {
+    customerFeedbackMessage.textContent = feedbackAccepted
+      ? "Thank you! Your feedback has been submitted for this completed order."
+      : "This completed order already has a review.";
+    customerFeedbackMessage.classList.add("visible");
+  }
+
+  if (feedbackAccepted && customerFeedbackForm) {
+    customerFeedbackForm.reset();
+    const defaultRating = document.getElementById("rating5");
+    if (defaultRating) defaultRating.checked = true;
+  }
+
+  if (commentInput) commentInput.focus();
+});
+
 // ===== EXPANDABLE SUBMENUS (Orders / Sales / Feedback groups) =====
 function wireSubmenuToggle(toggleId, submenuId) {
   const toggleButton = document.getElementById(toggleId);
   const submenu = document.getElementById(submenuId);
+  if (!toggleButton || !submenu) return;
+  if (toggleButton.classList.contains("disabled")) return;
   toggleButton.addEventListener("click", () => {
     submenu.classList.toggle("collapsed");
     toggleButton.classList.toggle("open");
@@ -124,6 +230,8 @@ function wireSubmenuToggle(toggleId, submenuId) {
 wireSubmenuToggle("sidebarOrdersToggle", "sidebarOrdersSubmenu");
 wireSubmenuToggle("sidebarSalesToggle", "sidebarSalesSubmenu");
 wireSubmenuToggle("sidebarFeedbackToggle", "sidebarFeedbackSubmenu");
+
+disableNonPresentationActions();
 
 // ===== ORDER LOGS (separate from analytics reports) =====
 const orderLogsByBranch = {

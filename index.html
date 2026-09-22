@@ -10,12 +10,20 @@
 </head>
 <body>
   <main id="customerView">
-    <section>
-      <button type="button" id="switchToAdminButton">Owner Access</button>
-      <h1>Tanginess Frozen Yogurt</h1>
-      <p>Cashier Order Creation</p>
-      <button type="button" id="showOrderTabButton">Create Order</button>
-      <button type="button" id="showCustomerStatusTabButton">Order Status</button>
+    <section class="customer-shell-top">
+      <div class="customer-shell-header">
+        <div>
+          <span class="eyebrow-tag">Tanginess Frozen Yogurt</span>
+          <h1>Welcome to Tanginess</h1>
+        </div>
+        <button type="button" id="switchToAdminButton" class="owner-button">Owner Access</button>
+      </div>
+      <p class="subheading">Cashier Order Creation</p>
+      <div class="customer-nav-row">
+        <button type="button" id="showOrderTabButton" class="customer-tab-button active" hidden>Create Order</button>
+        <button type="button" id="showCustomerStatusTabButton" class="customer-tab-button" hidden>Order Status</button>
+        <button type="button" id="showCustomerFeedbackTabButton" class="customer-tab-button">Feedback</button>
+      </div>
     </section>
 
     <div id="customerOrderTab">
@@ -54,6 +62,100 @@
       <h2>My Order Status</h2>
       <div id="customerStatusContainer"></div>
     </section>
+
+    <section id="customerFeedbackTab" hidden>
+      <div class="customer-feedback-header">
+        <div>
+          <span class="eyebrow-tag">Customer feedback</span>
+          <h2>Share your experience</h2>
+        </div>
+        <span class="feedback-badge">We listen</span>
+      </div>
+
+      <div class="customer-feedback-grid">
+        <div class="customer-feedback-panel">
+          <form id="customerFeedbackForm">
+            <div class="form-row">
+              <label for="feedbackBranchSelect">Which branch did you visit?</label>
+              <select id="feedbackBranchSelect">
+                <option value="plaridel" selected>Plaridel Branch</option>
+                <option value="malolos">Malolos Branch</option>
+              </select>
+            </div>
+
+            <div class="form-row rating-row">
+              <label>How would you rate your visit?</label>
+              <div class="star-rating" role="radiogroup" aria-label="Select a rating">
+                <input type="radio" name="customerRating" id="rating5" value="5" checked>
+                <label for="rating5" title="5 stars">★</label>
+                <input type="radio" name="customerRating" id="rating4" value="4">
+                <label for="rating4" title="4 stars">★</label>
+                <input type="radio" name="customerRating" id="rating3" value="3">
+                <label for="rating3" title="3 stars">★</label>
+                <input type="radio" name="customerRating" id="rating2" value="2">
+                <label for="rating2" title="2 stars">★</label>
+                <input type="radio" name="customerRating" id="rating1" value="1">
+                <label for="rating1" title="1 star">★</label>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="feedbackComment">Tell us more</label>
+              <textarea id="feedbackComment" rows="5" placeholder="Share what you liked, what can be improved, or how we can serve you better."></textarea>
+            </div>
+
+            <button type="submit" class="feedback-submit-button">Submit Feedback</button>
+          </form>
+          <p id="customerFeedbackMessage" class="feedback-success-message" aria-live="polite"></p>
+
+          <div class="customer-feedback-summary" id="customerFeedbackSummary" aria-live="polite"></div>
+
+          <div class="customer-review-toolbar">
+            <div class="customer-review-filter customer-branch-filter-wrap" aria-label="Review branch filter options">
+              <label class="filter-label" for="customerReviewBranchFilter">Branch</label>
+              <select id="customerReviewBranchFilter" class="review-branch-filter">
+                <option value="all">All branches</option>
+                <option value="plaridel">Plaridel Branch</option>
+                <option value="malolos">Malolos Branch</option>
+              </select>
+            </div>
+
+            <div class="customer-review-filter" aria-label="Review filter options">
+              <button type="button" class="review-filter-button active" data-review-filter="all">All</button>
+              <button type="button" class="review-filter-button" data-review-filter="5">5★</button>
+              <button type="button" class="review-filter-button" data-review-filter="4">4★</button>
+              <button type="button" class="review-filter-button" data-review-filter="3">3★</button>
+              <button type="button" class="review-filter-button" data-review-filter="2">2★</button>
+              <button type="button" class="review-filter-button" data-review-filter="1">1★</button>
+            </div>
+
+            <div class="customer-review-filter" aria-label="Review time filter options">
+              <button type="button" class="review-filter-button date-filter-button active" data-date-group="customer" data-date-filter="all">All time</button>
+              <button type="button" class="review-filter-button date-filter-button" data-date-group="customer" data-date-filter="7">7 days</button>
+              <button type="button" class="review-filter-button date-filter-button" data-date-group="customer" data-date-filter="30">30 days</button>
+              <button type="button" class="review-filter-button date-filter-button" data-date-group="customer" data-date-filter="90">90 days</button>
+              <button type="button" class="review-filter-button date-filter-button" data-date-group="customer" data-date-filter="365">1 year</button>
+            </div>
+          </div>
+
+          <div class="customer-review-feed" id="customerReviewFeed" aria-live="polite"></div>
+        </div>
+
+        <aside class="customer-feedback-aside">
+          <h3>What we value</h3>
+          <ul>
+            <li>Food quality and freshness</li>
+            <li>Service speed and friendliness</li>
+            <li>Cleanliness and comfort</li>
+            <li>Overall branch experience</li>
+          </ul>
+          <div class="mini-feedback-stat">
+            <strong>Customer-focused</strong>
+            <span>We use your comments to improve every branch.</span>
+          </div>
+        </aside>
+      </div>
+    </section>
   </main>
 
   <main id="adminView" hidden>
@@ -70,13 +172,13 @@
         </div>
 
         <nav class="sidebar-nav">
-          <button type="button" class="sidebar-link active" id="sidebarDashboardButton"><span class="sidebar-item-label"><svg class="sidebar-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Dashboard</span></button>
+          <button type="button" class="sidebar-link active" id="sidebarDashboardButton" hidden><span class="sidebar-item-label"><svg class="sidebar-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Dashboard</span></button>
 
-          <div class="sidebar-group">
-            <button type="button" class="sidebar-group-toggle" id="sidebarOrdersToggle"><span class="sidebar-item-label"><svg class="sidebar-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h2l2 11h11l2-8H6M9 20h.01M18 20h.01"/></svg>Orders</span><span class="chevron">+</span></button>
+          <div class="sidebar-group disabled" id="sidebarOrdersGroup">
+            <button type="button" class="sidebar-group-toggle disabled" id="sidebarOrdersToggle" aria-disabled="true"><span class="sidebar-item-label"><svg class="sidebar-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h2l2 11h11l2-8H6M9 20h.01M18 20h.01"/></svg>Orders</span><span class="chevron">+</span></button>
             <div class="sidebar-submenu collapsed" id="sidebarOrdersSubmenu">
-              <button type="button" class="sidebar-sublink" id="sidebarQueueButton">Order Queue</button>
-              <button type="button" class="sidebar-sublink" id="sidebarOrderLogsButton">Order Logs</button>
+              <button type="button" class="sidebar-sublink disabled" id="sidebarQueueButton" aria-disabled="true">Order Queue</button>
+              <button type="button" class="sidebar-sublink disabled" id="sidebarOrderLogsButton" aria-disabled="true">Order Logs</button>
             </div>
           </div>
 
@@ -109,7 +211,7 @@
       <div class="admin-main">
         <header class="admin-header">
           <button type="button" class="sidebar-toggle-btn" id="sidebarToggleButton" aria-label="Open navigation">Menu</button>
-          <div class="admin-search"><input type="text" placeholder="Search is unavailable" disabled></div>
+          <div class="admin-search" hidden aria-hidden="true"><input type="text" placeholder="Search is unavailable" disabled></div>
           <div class="admin-header-right">
             <span class="header-status">Owner workspace</span>
             <div class="admin-profile">
@@ -124,9 +226,9 @@
 
         <div class="admin-page-content">
           <div class="owner-branch-filter">
-            <label for="branchFilterSelect">Reports for:</label>
+            <label for="branchFilterSelect">Branch reviews:</label>
             <select id="branchFilterSelect">
-              <option value="general">General Report</option>
+              <option value="all">All branches</option>
               <option value="plaridel">Plaridel Branch</option>
               <option value="malolos">Malolos Branch</option>
             </select>
@@ -221,7 +323,32 @@
 
           <section id="adminFeedbackAnalysisTab" hidden>
             <h2>Customer Feedback Analysis</h2>
+            <div class="owner-analysis-toolbar">
+              <div class="owner-filter-group">
+                <span class="filter-row-title">Star rating</span>
+                <div class="owner-filter-buttons">
+                  <button type="button" class="owner-star-filter active" data-owner-star="all">All stars</button>
+                  <button type="button" class="owner-star-filter" data-owner-star="5">5★</button>
+                  <button type="button" class="owner-star-filter" data-owner-star="4">4★</button>
+                  <button type="button" class="owner-star-filter" data-owner-star="3">3★</button>
+                  <button type="button" class="owner-star-filter" data-owner-star="2">2★</button>
+                  <button type="button" class="owner-star-filter" data-owner-star="1">1★</button>
+                </div>
+              </div>
+
+              <div class="owner-filter-group owner-date-group">
+                <span class="filter-row-title">Review period</span>
+                <div class="owner-filter-buttons">
+                  <button type="button" class="date-filter-button owner-date-filter active" data-date-group="owner" data-date-filter="all">All time</button>
+                  <button type="button" class="date-filter-button owner-date-filter" data-date-group="owner" data-date-filter="7">7 days</button>
+                  <button type="button" class="date-filter-button owner-date-filter" data-date-group="owner" data-date-filter="30">30 days</button>
+                  <button type="button" class="date-filter-button owner-date-filter" data-date-group="owner" data-date-filter="90">90 days</button>
+                  <button type="button" class="date-filter-button owner-date-filter" data-date-group="owner" data-date-filter="365">1 year</button>
+                </div>
+              </div>
+            </div>
             <div id="feedbackAnalysisContainer"></div>
+            <div class="review-feed-block" id="feedbackRecentReviews"></div>
           </section>
 
         </div>

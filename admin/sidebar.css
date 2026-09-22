@@ -98,9 +98,14 @@
   box-shadow: inset 4px 0 0 var(--tanginess-blue);
 }
 
-.sidebar-link.disabled {
+.sidebar-link.disabled,
+.sidebar-group.disabled .sidebar-group-toggle,
+.sidebar-group.disabled .sidebar-sublink,
+.sidebar-group-toggle.disabled,
+.sidebar-sublink.disabled {
   opacity: 0.52;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 .sidebar-submenu {
