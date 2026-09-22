@@ -737,6 +737,22 @@ label {
   line-height: 1.7;
 }
 
+.review-action-button {
+  appearance: none;
+  border: 1px solid rgba(21, 152, 232, 0.2);
+  background: #ecf8ff;
+  color: var(--tanginess-blue-dark);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.review-action-button:hover {
+  background: #dff4ff;
+}
+
 .review-empty-state {
   display: flex;
   flex-direction: column;

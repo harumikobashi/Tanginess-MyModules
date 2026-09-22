@@ -168,6 +168,20 @@ document.getElementById("dashboardFeedbackLink").addEventListener("click", () =>
 const customerFeedbackForm = document.getElementById("customerFeedbackForm");
 const customerFeedbackMessage = document.getElementById("customerFeedbackMessage");
 
+function getDefaultFeedbackComment(rating) {
+  const safeRating = Number(rating) || 0;
+
+  if (safeRating >= 4) {
+    return "Customer shared a positive experience.";
+  }
+
+  if (safeRating <= 2) {
+    return "Customer shared a negative experience.";
+  }
+
+  return "Customer shared a neutral experience.";
+}
+
 customerFeedbackForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
@@ -189,7 +203,7 @@ customerFeedbackForm.addEventListener("submit", (event) => {
     customerId: "demo-customer",
     orderId: "completed-order-1",
     rating,
-    comment: (commentInput ? commentInput.value.trim() : "") || "Customer shared a positive experience.",
+    comment: (commentInput ? commentInput.value.trim() : "") || getDefaultFeedbackComment(rating),
     date: localDate,
     branch: branchLabel,
   };

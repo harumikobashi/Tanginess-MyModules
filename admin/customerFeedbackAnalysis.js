@@ -29,6 +29,8 @@ function addCustomerFeedbackEntry(entry, branchKey = "plaridel") {
 
   branchFeedback[safeBranchKey].unshift({
     ...entry,
+    rating: Number(entry.rating) || 0,
+    comment: (entry.comment && entry.comment.trim()) || getDefaultFeedbackComment(entry.rating),
     branch: entry.branch || branchName,
   });
 
@@ -105,6 +107,13 @@ function getCustomerReviewBranchFeedback() {
   return branchFeedback[selectedBranch] || [];
 }
 
+function formatLocalDateForInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getDateRangeFromPreset(preset = "all") {
   const today = new Date();
   const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -119,16 +128,16 @@ function getDateRangeFromPreset(preset = "all") {
   if (days > 0) {
     startDate.setDate(endDate.getDate() - days + 1);
     return {
-      start: startDate.toISOString().split("T")[0],
-      end: endDate.toISOString().split("T")[0],
+      start: formatLocalDateForInput(startDate),
+      end: formatLocalDateForInput(endDate),
     };
   }
 
   if (preset === "365") {
     startDate.setFullYear(endDate.getFullYear() - 1);
     return {
-      start: startDate.toISOString().split("T")[0],
-      end: endDate.toISOString().split("T")[0],
+      start: formatLocalDateForInput(startDate),
+      end: formatLocalDateForInput(endDate),
     };
   }
 
@@ -197,6 +206,25 @@ function getFilteredOwnerReviews(feedbackList) {
   return filtered;
 }
 
+function getReviewCommentText(entry) {
+  if (entry?.commentHidden) {
+    return "Comment hidden";
+  }
+
+  return (entry?.comment && entry.comment.trim()) || getDefaultFeedbackComment(entry?.rating);
+}
+
+function toggleFeedbackCommentVisibility(feedbackId) {
+  const allFeedback = ["plaridel", "malolos"].flatMap((branchKey) => branchFeedback[branchKey] || []);
+  const targetEntry = allFeedback.find((entry) => Number(entry.feedbackId) === Number(feedbackId));
+
+  if (!targetEntry) return;
+
+  targetEntry.commentHidden = !Boolean(targetEntry.commentHidden);
+  renderOwnerFeedbackReviews();
+  renderCustomerReviews();
+}
+
 function summarizeFeedbackInsights(feedbackList = []) {
   const positiveThemes = ["sarap", "fresh", "masarap", "maganda", "friendly", "service", "mabilis", "clean", "ambiance", "quality"];
   const negativeThemes = ["mahal", "matagal", "pila", "mali", "mainit", "slow", "delay", "issue", "bad", "uncomfortable"];
@@ -246,20 +274,24 @@ function renderReviewCards(feedbackList, containerId, overrideList) {
   }
 
   const reviews = filteredReviews;
+  const showOwnerControls = containerId === "feedbackRecentReviews";
   const cards = reviews.map((entry) => {
     const tone = entry.rating >= 4 ? "positive" : entry.rating <= 2 ? "negative" : "neutral";
+    const reviewText = getReviewCommentText(entry);
+    const commentToggleLabel = entry.commentHidden ? "Show comment" : "Hide comment";
 
     return `
-      <article class="review-card ${tone}">
+      <article class="review-card ${tone} ${entry.commentHidden ? "comment-hidden" : ""}">
         <div class="review-header">
           <div class="review-avatar">${(entry.branch || "C").charAt(0).toUpperCase()}</div>
           <div class="review-user-info">
             <strong>Customer</strong>
             <span>${entry.branch || "Plaridel"} • ${formatFeedbackDate(entry.date)}</span>
           </div>
+          ${showOwnerControls ? `<button type="button" class="review-action-button" data-feedback-id="${entry.feedbackId}" data-review-action="toggle-comment-visibility">${commentToggleLabel}</button>` : ""}
         </div>
         <div class="review-score" aria-label="${entry.rating} out of 5 stars">${getStarDisplay(entry.rating)}</div>
-        <p class="review-comment">“${entry.comment || "Great experience."}”</p>
+        <p class="review-comment">“${reviewText}”</p>
       </article>
     `;
   }).join("");
@@ -466,6 +498,16 @@ document.addEventListener("DOMContentLoaded", () => {
   if (customerReviewBranchFilter) {
     customerReviewBranchFilter.addEventListener("change", renderCustomerReviews);
   }
+
+  document.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-review-action='toggle-comment-visibility']");
+    if (!target) return;
+
+    const feedbackId = target.dataset.feedbackId;
+    if (feedbackId) {
+      toggleFeedbackCommentVisibility(feedbackId);
+    }
+  });
 
   document.querySelectorAll(".date-filter-button").forEach((button) => {
     button.addEventListener("click", () => {
