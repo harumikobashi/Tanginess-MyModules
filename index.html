@@ -104,7 +104,11 @@
               <textarea id="feedbackComment" rows="5" placeholder="Share what you liked, what can be improved, or how we can serve you better."></textarea>
             </div>
 
-            <button type="submit" class="feedback-submit-button">Submit Feedback</button>
+            <div class="customer-feedback-edit-actions" id="customerFeedbackEditActions" hidden>
+              <button type="button" class="feedback-edit-button" id="customerFeedbackEditButton">Edit submitted feedback</button>
+              <button type="button" class="feedback-cancel-button" id="customerFeedbackCancelButton">Cancel edit</button>
+            </div>
+            <button type="submit" class="feedback-submit-button" id="customerFeedbackSubmitButton">Submit Feedback</button>
           </form>
           <p id="customerFeedbackMessage" class="feedback-success-message" aria-live="polite"></p>
 

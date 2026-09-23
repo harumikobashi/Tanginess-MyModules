@@ -12,11 +12,14 @@ const branchFeedback = {
   ],
 };
 
+function getCustomerFeedbackEntry(customerId = "demo-customer", orderId = "completed-order-1") {
+  const allFeedback = Object.values(branchFeedback).flat();
+  return allFeedback.find((feedback) => feedback.customerId === customerId && feedback.orderId === orderId) || null;
+}
+
 function addCustomerFeedbackEntry(entry, branchKey = "plaridel") {
   const safeBranchKey = branchFeedback[branchKey] ? branchKey : "plaridel";
-  const existingReview = Object.values(branchFeedback)
-    .flat()
-    .some((feedback) => feedback.customerId === entry.customerId && feedback.orderId === entry.orderId);
+  const existingReview = getCustomerFeedbackEntry(entry.customerId, entry.orderId);
 
   if (existingReview) {
     return false;
@@ -32,6 +35,7 @@ function addCustomerFeedbackEntry(entry, branchKey = "plaridel") {
     rating: Number(entry.rating) || 0,
     comment: (entry.comment && entry.comment.trim()) || getDefaultFeedbackComment(entry.rating),
     branch: entry.branch || branchName,
+    editCount: 0,
   });
 
   const branchSelect = document.getElementById("branchFilterSelect");
@@ -46,7 +50,57 @@ function addCustomerFeedbackEntry(entry, branchKey = "plaridel") {
   return true;
 }
 
+function updateCustomerFeedbackEntry(entry, branchKey = "plaridel") {
+  const existingReview = getCustomerFeedbackEntry(entry.customerId, entry.orderId);
+  if (!existingReview || Number(existingReview.editCount || 0) >= 1) {
+    return false;
+  }
+
+  const targetBranchKey = branchFeedback[branchKey] ? branchKey : "plaridel";
+  const matchedBranchKey = Object.keys(branchFeedback).find((branch) =>
+    (branchFeedback[branch] || []).some((feedback) => feedback.feedbackId === existingReview.feedbackId)
+  ) || "plaridel";
+
+  const updatedEntry = {
+    ...existingReview,
+    rating: Number(entry.rating) || existingReview.rating || 0,
+    comment: (entry.comment && entry.comment.trim()) || getDefaultFeedbackComment(entry.rating || existingReview.rating),
+    branch: entry.branch || {
+      plaridel: "Plaridel",
+      malolos: "Malolos",
+    }[targetBranchKey] || "Plaridel",
+    date: entry.date || existingReview.date,
+    editCount: 1,
+  };
+
+  if (matchedBranchKey !== targetBranchKey) {
+    branchFeedback[matchedBranchKey] = (branchFeedback[matchedBranchKey] || []).filter(
+      (feedback) => feedback.feedbackId !== existingReview.feedbackId
+    );
+    branchFeedback[targetBranchKey].unshift(updatedEntry);
+  } else {
+    const branchEntries = branchFeedback[matchedBranchKey] || [];
+    const reviewIndex = branchEntries.findIndex((feedback) => feedback.feedbackId === existingReview.feedbackId);
+    if (reviewIndex >= 0) {
+      branchEntries[reviewIndex] = updatedEntry;
+    }
+  }
+
+  const branchSelect = document.getElementById("branchFilterSelect");
+  if (branchSelect) {
+    branchSelect.value = targetBranchKey;
+  }
+
+  renderOwnerFeedbackReviews();
+  renderCustomerReviews();
+  const filteredFeedback = filterFeedbackByDate(getSelectedBranchFeedback(), getFeedbackDateRange());
+  renderFeedbackAnalysis(analyzeFeedback(filteredFeedback), filteredFeedback);
+  return true;
+}
+
 window.addCustomerFeedbackEntry = addCustomerFeedbackEntry;
+window.updateCustomerFeedbackEntry = updateCustomerFeedbackEntry;
+window.getCustomerFeedbackEntry = getCustomerFeedbackEntry;
 
 function getStarDisplay(rating) {
   const rounded = Math.max(0, Math.min(5, Math.round(rating || 0)));
@@ -359,9 +413,10 @@ function renderCustomerFeedbackSummary(feedbackList) {
 
 function renderCustomerReviews() {
   const customerDateRange = getCustomerReviewDateRange();
-  const feedbackList = filterFeedbackByDate(getCustomerReviewBranchFeedback(), customerDateRange);
-  renderCustomerFeedbackSummary(feedbackList);
-  renderReviewCards(feedbackList, "customerReviewFeed");
+  const baseFeedback = filterFeedbackByDate(getCustomerReviewBranchFeedback(), customerDateRange);
+  const filteredFeedback = getFilteredReviews(baseFeedback);
+  renderCustomerFeedbackSummary(filteredFeedback);
+  renderReviewCards(filteredFeedback, "customerReviewFeed");
 }
 
 function renderOwnerFeedbackReviews() {

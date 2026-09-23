@@ -182,6 +182,115 @@ function getDefaultFeedbackComment(rating) {
   return "Customer shared a neutral experience.";
 }
 
+function getBranchKeyFromLabel(branchLabel) {
+  const normalizedBranch = typeof branchLabel === "string" ? branchLabel.trim() : "";
+  const branchMap = {
+    Plaridel: "plaridel",
+    Malolos: "malolos",
+  };
+
+  return branchMap[normalizedBranch] || "plaridel";
+}
+
+function getCurrentCustomerFeedbackEntry() {
+  if (typeof window.getCustomerFeedbackEntry === "function") {
+    return window.getCustomerFeedbackEntry("demo-customer", "completed-order-1");
+  }
+
+  return null;
+}
+
+function setFeedbackFormEditState(isEditing) {
+  const submitButton = document.getElementById("customerFeedbackSubmitButton");
+  const editActions = document.getElementById("customerFeedbackEditActions");
+  const editButton = document.getElementById("customerFeedbackEditButton");
+  const cancelButton = document.getElementById("customerFeedbackCancelButton");
+
+  customerFeedbackForm.dataset.editMode = isEditing ? "true" : "false";
+
+  if (submitButton) {
+    submitButton.textContent = isEditing ? "Update Feedback" : "Submit Feedback";
+    submitButton.classList.toggle("is-editing", isEditing);
+  }
+
+  if (editActions) {
+    editActions.hidden = !isEditing && !getCurrentCustomerFeedbackEntry();
+  }
+
+  if (editButton) {
+    editButton.hidden = !isEditing && !getCurrentCustomerFeedbackEntry();
+  }
+
+  if (cancelButton) {
+    cancelButton.hidden = !isEditing;
+  }
+}
+
+function updateCustomerFeedbackEditButton() {
+  const existingEntry = getCurrentCustomerFeedbackEntry();
+  const editActions = document.getElementById("customerFeedbackEditActions");
+  const editButton = document.getElementById("customerFeedbackEditButton");
+  const cancelButton = document.getElementById("customerFeedbackCancelButton");
+  const submitButton = document.getElementById("customerFeedbackSubmitButton");
+  const canEdit = existingEntry && Number(existingEntry.editCount || 0) < 1;
+
+  if (editActions) {
+    editActions.hidden = !canEdit && !customerFeedbackForm.dataset.editMode;
+  }
+
+  if (editButton) {
+    editButton.hidden = !canEdit && customerFeedbackForm.dataset.editMode !== "true";
+  }
+
+  if (cancelButton) {
+    cancelButton.hidden = customerFeedbackForm.dataset.editMode !== "true";
+  }
+
+  if (submitButton) {
+    const isEditing = customerFeedbackForm.dataset.editMode === "true";
+    submitButton.textContent = isEditing ? "Update Feedback" : "Submit Feedback";
+    submitButton.classList.toggle("is-editing", isEditing);
+  }
+}
+
+if (document.getElementById("customerFeedbackEditButton")) {
+  document.getElementById("customerFeedbackEditButton").addEventListener("click", () => {
+    const entry = getCurrentCustomerFeedbackEntry();
+    if (!entry || Number(entry.editCount || 0) >= 1) {
+      return;
+    }
+
+    customerFeedbackForm.dataset.editMode = "true";
+    const branchSelect = document.getElementById("feedbackBranchSelect");
+    const commentInput = document.getElementById("feedbackComment");
+    const ratingInput = document.querySelector(`input[name="customerRating"][value="${entry.rating}"]`);
+    if (branchSelect) branchSelect.value = getBranchKeyFromLabel(entry.branch);
+    if (commentInput) commentInput.value = entry.comment || "";
+    if (ratingInput) ratingInput.checked = true;
+
+    if (customerFeedbackMessage) {
+      customerFeedbackMessage.textContent = "You may update your feedback once before it is locked.";
+      customerFeedbackMessage.classList.add("visible");
+    }
+
+    setFeedbackFormEditState(true);
+    if (commentInput) commentInput.focus();
+  });
+}
+
+if (document.getElementById("customerFeedbackCancelButton")) {
+  document.getElementById("customerFeedbackCancelButton").addEventListener("click", () => {
+    customerFeedbackForm.reset();
+    const defaultRating = document.getElementById("rating5");
+    if (defaultRating) defaultRating.checked = true;
+    setFeedbackFormEditState(false);
+    if (customerFeedbackMessage) {
+      customerFeedbackMessage.textContent = "Edit cancelled.";
+      customerFeedbackMessage.classList.add("visible");
+    }
+  });
+}
+
 customerFeedbackForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
@@ -198,8 +307,11 @@ customerFeedbackForm.addEventListener("submit", (event) => {
   const localNow = new Date();
   const localDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().split("T")[0];
 
+  const existingEntry = getCurrentCustomerFeedbackEntry();
+  const isEditing = customerFeedbackForm.dataset.editMode === "true" && existingEntry && Number(existingEntry.editCount || 0) < 1;
+
   const newEntry = {
-    feedbackId: Date.now(),
+    feedbackId: existingEntry ? existingEntry.feedbackId : Date.now(),
     customerId: "demo-customer",
     orderId: "completed-order-1",
     rating,
@@ -209,14 +321,20 @@ customerFeedbackForm.addEventListener("submit", (event) => {
   };
 
   let feedbackAccepted = false;
-  if (typeof window.addCustomerFeedbackEntry === "function") {
+  if (isEditing && typeof window.updateCustomerFeedbackEntry === "function") {
+    feedbackAccepted = window.updateCustomerFeedbackEntry(newEntry, branchKey);
+  } else if (typeof window.addCustomerFeedbackEntry === "function") {
     feedbackAccepted = window.addCustomerFeedbackEntry(newEntry, branchKey);
   }
 
   if (customerFeedbackMessage) {
     customerFeedbackMessage.textContent = feedbackAccepted
-      ? "Thank you! Your feedback has been submitted for this completed order."
-      : "This completed order already has a review.";
+      ? (isEditing
+        ? "Your feedback has been saved. This was your final edit."
+        : "Thank you! Your feedback has been submitted for this completed order.")
+      : (existingEntry && Number(existingEntry.editCount || 0) < 1
+        ? "This completed order already has a review. Use the edit button to update it once."
+        : "This completed order already has a review.");
     customerFeedbackMessage.classList.add("visible");
   }
 
@@ -224,10 +342,14 @@ customerFeedbackForm.addEventListener("submit", (event) => {
     customerFeedbackForm.reset();
     const defaultRating = document.getElementById("rating5");
     if (defaultRating) defaultRating.checked = true;
+    setFeedbackFormEditState(false);
+    updateCustomerFeedbackEditButton();
   }
 
   if (commentInput) commentInput.focus();
 });
+
+updateCustomerFeedbackEditButton();
 
 // ===== EXPANDABLE SUBMENUS (Orders / Sales / Feedback groups) =====
 function wireSubmenuToggle(toggleId, submenuId) {
