@@ -1,33 +1,24 @@
 // ===== PRODUCT SALES ANALYSIS =====
-// Reuses the same sample order data structure as Sales Analytics.
-// Later, both files will pull from the same real order source instead of duplicating data.
-const productBranchOrders = {
-  general: [
-    { orderId: 1, date: "2026-09-01", items: [{ name: "Strawberry", qty: 2, price: 50 }], total: 100, status: "Completed", branch: "General" },
-    { orderId: 2, date: "2026-09-01", items: [{ name: "Mango", qty: 1, price: 55 }], total: 55, status: "Completed", branch: "General" },
-    { orderId: 3, date: "2026-09-02", items: [{ name: "Blueberry", qty: 3, price: 60 }], total: 180, status: "Completed", branch: "General" },
-    { orderId: 4, date: "2026-09-02", items: [{ name: "Strawberry", qty: 1, price: 50 }, { name: "Mango", qty: 1, price: 55 }], total: 105, status: "Completed", branch: "General" },
-    { orderId: 5, date: "2026-09-03", items: [{ name: "Blueberry", qty: 2, price: 60 }], total: 120, status: "Completed", branch: "General" },
-  ],
-  plaridel: [
-    { orderId: 11, date: "2026-09-01", items: [{ name: "Strawberry", qty: 3, price: 50 }], total: 150, status: "Completed", branch: "Plaridel" },
-    { orderId: 12, date: "2026-09-02", items: [{ name: "Mango", qty: 2, price: 55 }], total: 110, status: "Completed", branch: "Plaridel" },
-    { orderId: 13, date: "2026-09-02", items: [{ name: "Blueberry", qty: 2, price: 60 }, { name: "Strawberry", qty: 1, price: 50 }], total: 170, status: "Completed", branch: "Plaridel" },
-    { orderId: 14, date: "2026-09-03", items: [{ name: "Mango", qty: 3, price: 55 }], total: 165, status: "Completed", branch: "Plaridel" },
-  ],
-  malolos: [
-    { orderId: 21, date: "2026-09-01", items: [{ name: "Blueberry", qty: 2, price: 60 }], total: 120, status: "Completed", branch: "Malolos" },
-    { orderId: 22, date: "2026-09-01", items: [{ name: "Strawberry", qty: 2, price: 50 }, { name: "Mango", qty: 1, price: 55 }], total: 155, status: "Completed", branch: "Malolos" },
-    { orderId: 23, date: "2026-09-02", items: [{ name: "Blueberry", qty: 3, price: 60 }], total: 180, status: "Completed", branch: "Malolos" },
-    { orderId: 24, date: "2026-09-03", items: [{ name: "Strawberry", qty: 3, price: 50 }], total: 150, status: "Completed", branch: "Malolos" },
-    { orderId: 25, date: "2026-09-03", items: [{ name: "Mango", qty: 2, price: 55 }, { name: "Blueberry", qty: 1, price: 60 }], total: 170, status: "Completed", branch: "Malolos" },
-  ],
-};
-
+// Uses the existing order records already managed by the project instead of
+// duplicating sample order data. The processing logic is implemented manually
+// to satisfy beginner-friendly DSA requirements.
 function getSelectedBranchProducts() {
+  if (typeof window.getSelectedOrderLogs === "function") {
+    return window.getSelectedOrderLogs();
+  }
+
   const branchSelect = document.getElementById("branchFilterSelect");
   const selectedBranch = branchSelect ? branchSelect.value : "general";
-  return productBranchOrders[selectedBranch] || productBranchOrders.general;
+
+  if (window.orderLogsByBranch && window.orderLogsByBranch[selectedBranch]) {
+    return window.orderLogsByBranch[selectedBranch];
+  }
+
+  if (window.orderLogsByBranch && window.orderLogsByBranch.general) {
+    return window.orderLogsByBranch.general;
+  }
+
+  return [];
 }
 
 // STEP 1 & 2: TRAVERSAL + GROUPING
@@ -60,16 +51,22 @@ function analyzeProductSales(orders) {
 
   // Convert the productMap into a plain array so we can sort it.
   // Each entry becomes: { name: "Strawberry", quantity: 3, revenue: 150 }
-  const productNames = Object.keys(productMap);
+  const productNames = [];
+  let productNameIndex = 0;
+  for (const productName in productMap) {
+    productNames[productNameIndex] = productName;
+    productNameIndex = productNameIndex + 1;
+  }
+
   const productArray = [];
 
   for (let i = 0; i < productNames.length; i++) {
     const name = productNames[i];
-    productArray.push({
+    productArray[i] = {
       name: name,
       quantity: productMap[name].quantity,
       revenue: productMap[name].revenue,
-    });
+    };
   }
 
   // SORTING: arrange products from highest revenue to lowest.

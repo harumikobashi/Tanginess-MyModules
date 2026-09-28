@@ -4,26 +4,30 @@ function disableNonPresentationActions() {
   const queueButton = document.getElementById("sidebarQueueButton");
   const orderLogsButton = document.getElementById("sidebarOrderLogsButton");
 
-  [orderGroup, orderToggle, queueButton, orderLogsButton].forEach((element) => {
-    if (!element) return;
+  const elementsToDisable = [orderGroup, orderToggle, queueButton, orderLogsButton];
+
+  for (let i = 0; i < elementsToDisable.length; i++) {
+    const element = elementsToDisable[i];
+    if (!element) continue;
     element.classList.add("disabled");
     element.setAttribute("aria-disabled", "true");
     if (element.tagName === "BUTTON") {
       element.disabled = true;
     }
-  });
+  }
 
   const customerTabButtonsToDisable = [
     document.getElementById("showOrderTabButton"),
     document.getElementById("showCustomerStatusTabButton"),
   ];
 
-  customerTabButtonsToDisable.forEach((button) => {
-    if (!button) return;
+  for (let i = 0; i < customerTabButtonsToDisable.length; i++) {
+    const button = customerTabButtonsToDisable[i];
+    if (!button) continue;
     button.disabled = true;
     button.classList.add("disabled");
     button.setAttribute("aria-disabled", "true");
-  });
+  }
 }
 
 // ===== VIEW SWITCHING (Cashier <-> Owner) =====
@@ -62,13 +66,17 @@ function activateCustomerTab(tabName) {
   customerStatusTab.hidden = tabName !== "status";
   customerFeedbackTab.hidden = tabName !== "feedback";
 
-  customerTabButtons.forEach((button) => {
-    button.classList.toggle("active", button.id === {
-      order: "showOrderTabButton",
-      status: "showCustomerStatusTabButton",
-      feedback: "showCustomerFeedbackTabButton",
-    }[tabName]);
-  });
+  const activeButtonId = {
+    order: "showOrderTabButton",
+    status: "showCustomerStatusTabButton",
+    feedback: "showCustomerFeedbackTabButton",
+  }[tabName];
+
+  for (let i = 0; i < customerTabButtons.length; i++) {
+    const button = customerTabButtons[i];
+    const isActive = button.id === activeButtonId;
+    button.classList.toggle("active", isActive);
+  }
 }
 
 showOrderTabButton?.addEventListener("click", (event) => {
@@ -409,10 +417,30 @@ function renderRecentOrders() {
   const container = document.getElementById("dashboardRecentOrdersContainer");
   if (!container) return;
 
-  const orders = getSelectedOrderLogs()
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 4);
+  const sourceOrders = getSelectedOrderLogs();
+  const sortedOrders = [];
+
+  for (let i = 0; i < sourceOrders.length; i++) {
+    sortedOrders[i] = sourceOrders[i];
+  }
+
+  for (let i = 1; i < sortedOrders.length; i++) {
+    const currentOrder = sortedOrders[i];
+    let j = i - 1;
+
+    while (j >= 0 && new Date(sortedOrders[j].date) < new Date(currentOrder.date)) {
+      sortedOrders[j + 1] = sortedOrders[j];
+      j = j - 1;
+    }
+
+    sortedOrders[j + 1] = currentOrder;
+  }
+
+  const orders = [];
+  const limit = Math.min(sortedOrders.length, 4);
+  for (let i = 0; i < limit; i++) {
+    orders[i] = sortedOrders[i];
+  }
 
   if (!orders.length) {
     container.innerHTML = `
@@ -424,9 +452,20 @@ function renderRecentOrders() {
     return;
   }
 
-  container.innerHTML = orders.map((order) => {
-    const itemSummary = order.items.map((item) => `${item.name} x${item.qty}`).join(" • ");
-    return `
+  let htmlOutput = "";
+  for (let i = 0; i < orders.length; i++) {
+    const order = orders[i];
+    let itemSummary = "";
+
+    for (let j = 0; j < order.items.length; j++) {
+      const item = order.items[j];
+      if (j > 0) {
+        itemSummary = itemSummary + " • ";
+      }
+      itemSummary = itemSummary + item.name + " x" + item.qty;
+    }
+
+    htmlOutput = htmlOutput + `
       <div class="dashboard-order-item">
         <div class="dashboard-order-main">
           <span class="dashboard-order-id">#${order.orderId}</span>
@@ -439,7 +478,9 @@ function renderRecentOrders() {
         </div>
       </div>
     `;
-  }).join("");
+  }
+
+  container.innerHTML = htmlOutput;
 }
 
 function renderOrderQueue() {
@@ -447,7 +488,24 @@ function renderOrderQueue() {
   const nextOrderText = document.getElementById("nextOrderText");
   if (!container) return;
 
-  const orders = getSelectedOrderLogs().slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sourceOrders = getSelectedOrderLogs();
+  const orders = [];
+
+  for (let i = 0; i < sourceOrders.length; i++) {
+    orders[i] = sourceOrders[i];
+  }
+
+  for (let i = 1; i < orders.length; i++) {
+    const currentOrder = orders[i];
+    let j = i - 1;
+
+    while (j >= 0 && new Date(orders[j].date) < new Date(currentOrder.date)) {
+      orders[j + 1] = orders[j];
+      j = j - 1;
+    }
+
+    orders[j + 1] = currentOrder;
+  }
 
   if (!orders.length) {
     container.innerHTML = '<p>No orders in queue.</p>';
@@ -460,16 +518,30 @@ function renderOrderQueue() {
     nextOrderText.textContent = `Next order: #${nextOrder.orderId} • ${nextOrder.customer} • ${formatCurrency(nextOrder.total)}`;
   }
 
-  const rows = orders.map((order) => `
-    <tr>
-      <td>#${order.orderId}</td>
-      <td>${order.customer}</td>
-      <td>${order.date}</td>
-      <td>${order.items.map((item) => `${item.name} x${item.qty}`).join(", ")}</td>
-      <td>${formatCurrency(order.total)}</td>
-      <td><span class="order-status-pill">${order.status}</span></td>
-    </tr>
-  `).join("");
+  let rowsHtml = "";
+  for (let i = 0; i < orders.length; i++) {
+    const order = orders[i];
+    let itemList = "";
+
+    for (let j = 0; j < order.items.length; j++) {
+      const item = order.items[j];
+      if (j > 0) {
+        itemList = itemList + ", ";
+      }
+      itemList = itemList + item.name + " x" + item.qty;
+    }
+
+    rowsHtml = rowsHtml + `
+      <tr>
+        <td>#${order.orderId}</td>
+        <td>${order.customer}</td>
+        <td>${order.date}</td>
+        <td>${itemList}</td>
+        <td>${formatCurrency(order.total)}</td>
+        <td><span class="order-status-pill">${order.status}</span></td>
+      </tr>
+    `;
+  }
 
   container.innerHTML = `
     <table class="order-queue-table">
@@ -483,7 +555,7 @@ function renderOrderQueue() {
           <th>Status</th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody>${rowsHtml}</tbody>
     </table>
   `;
 }

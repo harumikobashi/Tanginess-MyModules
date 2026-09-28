@@ -1,23 +1,76 @@
 // ===== CUSTOMER FEEDBACK ANALYSIS =====
-// Sample feedback data. Later this will be replaced by real feedback
-// records from your groupmate's Customer Feedback module.
-const branchFeedback = {
-  plaridel: [
-    { feedbackId: 11, rating: 5, comment: "Fresh at masarap ang yogurt!", date: "2026-09-01", branch: "Plaridel" },
-    { feedbackId: 12, rating: 4, comment: "Maganda ang service.", date: "2026-09-02", branch: "Plaridel" },
-  ],
-  malolos: [
-    { feedbackId: 21, rating: 4, comment: "Mabilis ang order at masarap.", date: "2026-09-01", branch: "Malolos" },
-    { feedbackId: 22, rating: 2, comment: "Medyo mahabang pila.", date: "2026-09-02", branch: "Malolos" },
-  ],
-};
+function getFeedbackStore() {
+  const existingStore = window.projectFeedbackData || window.customerFeedbackData || window.feedbackData || {};
 
-function getCustomerFeedbackEntry(customerId = "demo-customer", orderId = "completed-order-1") {
-  const branchKeys = Object.keys(branchFeedback);
+  if (!existingStore.plaridel) {
+    existingStore.plaridel = [];
+  }
+
+  if (!existingStore.malolos) {
+    existingStore.malolos = [];
+  }
+
+  window.projectFeedbackData = existingStore;
+  return existingStore;
+}
+
+function getBranchKeys() {
+  return ["plaridel", "malolos"];
+}
+
+function hasBranchKey(branchKey) {
+  const keys = getBranchKeys();
+  for (let i = 0; i < keys.length; i++) {
+    if (keys[i] === branchKey) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function copyObject(sourceObject) {
+  const copiedObject = {};
+  for (const key in sourceObject) {
+    copiedObject[key] = sourceObject[key];
+  }
+  return copiedObject;
+}
+
+function normalizeFeedbackEntry(entry, fallbackBranch) {
+  const normalizedEntry = copyObject(entry || {});
+  const ratingValue = Number(normalizedEntry.rating) || 0;
+  normalizedEntry.rating = ratingValue;
+
+  if (!(normalizedEntry.comment && normalizedEntry.comment.trim())) {
+    normalizedEntry.comment = getDefaultFeedbackComment(ratingValue);
+  }
+
+  if (!normalizedEntry.branch) {
+    normalizedEntry.branch = fallbackBranch || "Plaridel";
+  }
+
+  if (normalizedEntry.editCount === undefined || normalizedEntry.editCount === null) {
+    normalizedEntry.editCount = 0;
+  }
+
+  return normalizedEntry;
+}
+
+function getCustomerFeedbackEntry(customerId, orderId) {
+  if (customerId === undefined) {
+    customerId = "demo-customer";
+  }
+
+  if (orderId === undefined) {
+    orderId = "completed-order-1";
+  }
+
+  const store = getFeedbackStore();
+  const branchKeys = getBranchKeys();
 
   for (let i = 0; i < branchKeys.length; i++) {
     const branchKey = branchKeys[i];
-    const branchEntries = branchFeedback[branchKey] || [];
+    const branchEntries = store[branchKey] || [];
 
     for (let j = 0; j < branchEntries.length; j++) {
       const feedback = branchEntries[j];
@@ -30,26 +83,35 @@ function getCustomerFeedbackEntry(customerId = "demo-customer", orderId = "compl
   return null;
 }
 
-function addCustomerFeedbackEntry(entry, branchKey = "plaridel") {
-  const safeBranchKey = branchFeedback[branchKey] ? branchKey : "plaridel";
+function addCustomerFeedbackEntry(entry, branchKey) {
+  if (branchKey === undefined || branchKey === null || branchKey === "") {
+    branchKey = "plaridel";
+  }
+
+  const store = getFeedbackStore();
+  const safeBranchKey = hasBranchKey(branchKey) ? branchKey : "plaridel";
   const existingReview = getCustomerFeedbackEntry(entry.customerId, entry.orderId);
 
   if (existingReview) {
     return false;
   }
 
-  const branchName = {
+  const branchNameMap = {
     plaridel: "Plaridel",
     malolos: "Malolos",
-  }[safeBranchKey] || "Plaridel";
+  };
 
-  branchFeedback[safeBranchKey].unshift({
-    ...entry,
-    rating: Number(entry.rating) || 0,
-    comment: (entry.comment && entry.comment.trim()) || getDefaultFeedbackComment(entry.rating),
-    branch: entry.branch || branchName,
-    editCount: 0,
-  });
+  const currentEntries = store[safeBranchKey] || [];
+  const newEntries = [];
+  const newEntry = normalizeFeedbackEntry(entry, branchNameMap[safeBranchKey]);
+
+  newEntries[0] = newEntry;
+
+  for (let i = 0; i < currentEntries.length; i++) {
+    newEntries[i + 1] = currentEntries[i];
+  }
+
+  store[safeBranchKey] = newEntries;
 
   const branchSelect = document.getElementById("branchFilterSelect");
   if (branchSelect) {
@@ -58,62 +120,94 @@ function addCustomerFeedbackEntry(entry, branchKey = "plaridel") {
 
   renderOwnerFeedbackReviews();
   renderCustomerReviews();
+
   const filteredFeedback = filterFeedbackByDate(getSelectedBranchFeedback(), getFeedbackDateRange());
   renderFeedbackAnalysis(analyzeFeedback(filteredFeedback), filteredFeedback);
   return true;
 }
 
-function updateCustomerFeedbackEntry(entry, branchKey = "plaridel") {
+function updateCustomerFeedbackEntry(entry, branchKey) {
+  if (branchKey === undefined || branchKey === null || branchKey === "") {
+    branchKey = "plaridel";
+  }
+
+  const store = getFeedbackStore();
   const existingReview = getCustomerFeedbackEntry(entry.customerId, entry.orderId);
+
   if (!existingReview || Number(existingReview.editCount || 0) >= 1) {
     return false;
   }
 
-  const targetBranchKey = branchFeedback[branchKey] ? branchKey : "plaridel";
+  const targetBranchKey = hasBranchKey(branchKey) ? branchKey : "plaridel";
   let matchedBranchKey = "plaridel";
-  const branchKeys = Object.keys(branchFeedback);
+  const branchKeys = getBranchKeys();
 
   for (let i = 0; i < branchKeys.length; i++) {
-    const branchKey = branchKeys[i];
-    const branchEntries = branchFeedback[branchKey] || [];
-    let foundReview = false;
+    const currentBranchKey = branchKeys[i];
+    const branchEntries = store[currentBranchKey] || [];
 
     for (let j = 0; j < branchEntries.length; j++) {
       if (branchEntries[j].feedbackId === existingReview.feedbackId) {
-        matchedBranchKey = branchKey;
-        foundReview = true;
+        matchedBranchKey = currentBranchKey;
         break;
       }
     }
 
-    if (foundReview) {
+    if (matchedBranchKey !== "plaridel") {
       break;
     }
   }
 
-  const updatedEntry = {
-    ...existingReview,
-    rating: Number(entry.rating) || existingReview.rating || 0,
-    comment: (entry.comment && entry.comment.trim()) || getDefaultFeedbackComment(entry.rating || existingReview.rating),
-    branch: entry.branch || {
-      plaridel: "Plaridel",
-      malolos: "Malolos",
-    }[targetBranchKey] || "Plaridel",
-    date: entry.date || existingReview.date,
-    editCount: 1,
-  };
+  const updatedEntry = normalizeFeedbackEntry(entry, targetBranchKey === "plaridel" ? "Plaridel" : "Malolos");
+  updatedEntry.feedbackId = existingReview.feedbackId;
+  updatedEntry.customerId = existingReview.customerId;
+  updatedEntry.orderId = existingReview.orderId;
+  updatedEntry.branch = entry.branch || (targetBranchKey === "malolos" ? "Malolos" : "Plaridel");
+  updatedEntry.date = entry.date || existingReview.date;
+  updatedEntry.editCount = 1;
 
   if (matchedBranchKey !== targetBranchKey) {
-    branchFeedback[matchedBranchKey] = (branchFeedback[matchedBranchKey] || []).filter(
-      (feedback) => feedback.feedbackId !== existingReview.feedbackId
-    );
-    branchFeedback[targetBranchKey].unshift(updatedEntry);
-  } else {
-    const branchEntries = branchFeedback[matchedBranchKey] || [];
-    const reviewIndex = branchEntries.findIndex((feedback) => feedback.feedbackId === existingReview.feedbackId);
-    if (reviewIndex >= 0) {
-      branchEntries[reviewIndex] = updatedEntry;
+    const oldEntries = store[matchedBranchKey] || [];
+    const remainingEntries = [];
+    let remainingIndex = 0;
+
+    for (let i = 0; i < oldEntries.length; i++) {
+      if (oldEntries[i].feedbackId !== existingReview.feedbackId) {
+        remainingEntries[remainingIndex] = oldEntries[i];
+        remainingIndex = remainingIndex + 1;
+      }
     }
+
+    store[matchedBranchKey] = remainingEntries;
+
+    const targetEntries = store[targetBranchKey] || [];
+    const mergedEntries = [];
+    let mergedIndex = 0;
+
+    mergedEntries[mergedIndex] = updatedEntry;
+    mergedIndex = mergedIndex + 1;
+
+    for (let i = 0; i < targetEntries.length; i++) {
+      mergedEntries[mergedIndex] = targetEntries[i];
+      mergedIndex = mergedIndex + 1;
+    }
+
+    store[targetBranchKey] = mergedEntries;
+  } else {
+    const branchEntries = store[matchedBranchKey] || [];
+    const revisedEntries = [];
+    let revisedIndex = 0;
+
+    for (let i = 0; i < branchEntries.length; i++) {
+      if (branchEntries[i].feedbackId === existingReview.feedbackId) {
+        revisedEntries[revisedIndex] = updatedEntry;
+      } else {
+        revisedEntries[revisedIndex] = branchEntries[i];
+      }
+      revisedIndex = revisedIndex + 1;
+    }
+
+    store[matchedBranchKey] = revisedEntries;
   }
 
   const branchSelect = document.getElementById("branchFilterSelect");
@@ -123,6 +217,7 @@ function updateCustomerFeedbackEntry(entry, branchKey = "plaridel") {
 
   renderOwnerFeedbackReviews();
   renderCustomerReviews();
+
   const filteredFeedback = filterFeedbackByDate(getSelectedBranchFeedback(), getFeedbackDateRange());
   renderFeedbackAnalysis(analyzeFeedback(filteredFeedback), filteredFeedback);
   return true;
@@ -139,23 +234,28 @@ function getStarDisplay(rating) {
   if (rounded < 0) {
     rounded = 0;
   }
+
   if (rounded > 5) {
     rounded = 5;
   }
 
-  const stars = [];
+  let stars = "";
   for (let index = 0; index < 5; index++) {
-    stars.push(index < rounded ? "★" : "☆");
+    if (index < rounded) {
+      stars = stars + "★";
+    } else {
+      stars = stars + "☆";
+    }
   }
 
-  return stars.join("");
+  return stars;
 }
 
 function formatFeedbackDate(dateValue) {
   if (!dateValue) return "Recent";
 
   const parsedDate = typeof dateValue === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
-    ? new Date(`${dateValue}T12:00:00`)
+    ? new Date(dateValue + "T12:00:00")
     : new Date(dateValue);
 
   if (Number.isNaN(parsedDate.getTime())) {
@@ -172,26 +272,33 @@ function formatFeedbackDate(dateValue) {
 function getSelectedBranchFeedback() {
   const branchSelect = document.getElementById("branchFilterSelect");
   const selectedBranch = branchSelect ? branchSelect.value : "all";
+  const store = getFeedbackStore();
 
-  const branchKeys = selectedBranch === "all" ? ["plaridel", "malolos"] : [selectedBranch];
-  const allFeedback = [];
+  if (selectedBranch === "all") {
+    const allFeedback = [];
+    const branchKeys = getBranchKeys();
+    let allIndex = 0;
 
-  for (let i = 0; i < branchKeys.length; i++) {
-    const branchKey = branchKeys[i];
-    const branchEntries = branchFeedback[branchKey] || [];
+    for (let i = 0; i < branchKeys.length; i++) {
+      const branchEntries = store[branchKeys[i]] || [];
 
-    for (let j = 0; j < branchEntries.length; j++) {
-      allFeedback.push(branchEntries[j]);
+      for (let j = 0; j < branchEntries.length; j++) {
+        allFeedback[allIndex] = branchEntries[j];
+        allIndex = allIndex + 1;
+      }
     }
+
+    return allFeedback;
   }
 
-  return allFeedback;
+  return store[selectedBranch] || [];
 }
 
 function getCustomerBranchFeedback() {
   const customerBranchSelect = document.getElementById("feedbackBranchSelect");
   const selectedBranch = customerBranchSelect ? customerBranchSelect.value : "plaridel";
-  return branchFeedback[selectedBranch] || branchFeedback.plaridel;
+  const store = getFeedbackStore();
+  return store[selectedBranch] || [];
 }
 
 function getCustomerReviewBranchFilterValue() {
@@ -201,33 +308,40 @@ function getCustomerReviewBranchFilterValue() {
 
 function getCustomerReviewBranchFeedback() {
   const selectedBranch = getCustomerReviewBranchFilterValue();
+  const store = getFeedbackStore();
 
   if (selectedBranch === "all") {
     const allFeedback = [];
-    const branchKeys = ["plaridel", "malolos"];
+    const branchKeys = getBranchKeys();
+    let allIndex = 0;
 
     for (let i = 0; i < branchKeys.length; i++) {
-      const branchEntries = branchFeedback[branchKeys[i]] || [];
+      const branchEntries = store[branchKeys[i]] || [];
 
       for (let j = 0; j < branchEntries.length; j++) {
-        allFeedback.push(branchEntries[j]);
+        allFeedback[allIndex] = branchEntries[j];
+        allIndex = allIndex + 1;
       }
     }
 
     return allFeedback;
   }
 
-  return branchFeedback[selectedBranch] || [];
+  return store[selectedBranch] || [];
 }
 
 function formatLocalDateForInput(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return year + "-" + month + "-" + day;
 }
 
-function getDateRangeFromPreset(preset = "all") {
+function getDateRangeFromPreset(preset) {
+  if (preset === undefined) {
+    preset = "all";
+  }
+
   const today = new Date();
   const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -258,7 +372,8 @@ function getDateRangeFromPreset(preset = "all") {
 }
 
 function getDatePreset(groupName) {
-  const activeButton = document.querySelector(`.date-filter-button[data-date-group="${groupName}"].active`);
+  const selector = '.date-filter-button[data-date-group="' + groupName + '"]';
+  const activeButton = document.querySelector(selector + ".active");
   return activeButton ? activeButton.dataset.dateFilter : "all";
 }
 
@@ -270,22 +385,37 @@ function getCustomerReviewDateRange() {
   return getDateRangeFromPreset(getDatePreset("customer"));
 }
 
-function filterFeedbackByDate(feedbackList, dateRange = { start: "", end: "" }) {
-  if (!Array.isArray(feedbackList)) return [];
+function filterFeedbackByDate(feedbackList, dateRange) {
+  if (!Array.isArray(feedbackList)) {
+    return [];
+  }
 
-  const { start, end } = dateRange || { start: "", end: "" };
-  const filtered = [];
+  if (dateRange === undefined) {
+    dateRange = { start: "", end: "" };
+  }
+
+  const result = [];
+  let resultCount = 0;
+  const start = dateRange.start || "";
+  const end = dateRange.end || "";
 
   for (let i = 0; i < feedbackList.length; i++) {
     const entry = feedbackList[i];
-    const shouldInclude = !(start && entry.date < start) && !(end && entry.date > end);
 
-    if (shouldInclude) {
-      filtered.push(entry);
+    if (start && entry.date < start) {
+      continue;
     }
+
+    if (end && entry.date > end) {
+      continue;
+    }
+
+    result[resultCount] = entry;
+    resultCount = resultCount + 1;
   }
 
-  return filtered;
+  result.length = resultCount;
+  return result;
 }
 
 function getReviewFilterValue() {
@@ -300,128 +430,178 @@ function getOwnerStarFilterValue() {
 
 function getOwnerFilterLabel() {
   const star = getOwnerStarFilterValue();
-  if (star !== "all") return `${star}★ reviews`;
+  if (star !== "all") return star + "★ reviews";
   return "All reviews";
 }
 
 function getFilteredReviews(feedbackList) {
   const filterValue = getReviewFilterValue();
   const filtered = [];
+  let filteredIndex = 0;
 
   for (let i = 0; i < feedbackList.length; i++) {
     const entry = feedbackList[i];
     if (filterValue === "all" || Number(entry.rating) === Number(filterValue)) {
-      filtered.push(entry);
+      filtered[filteredIndex] = entry;
+      filteredIndex = filteredIndex + 1;
     }
   }
 
+  filtered.length = filteredIndex;
   return filtered;
 }
 
 function getFilteredOwnerReviews(feedbackList) {
   const star = getOwnerStarFilterValue();
   const filtered = [];
+  let filteredIndex = 0;
 
-  for (let i = 0; i < (feedbackList || []).length; i++) {
-    const entry = (feedbackList || [])[i];
+  for (let i = 0; i < feedbackList.length; i++) {
+    const entry = feedbackList[i];
     if (star === "all" || Number(entry.rating) === Number(star)) {
-      filtered.push(entry);
+      filtered[filteredIndex] = entry;
+      filteredIndex = filteredIndex + 1;
     }
   }
 
+  filtered.length = filteredIndex;
   return filtered;
 }
 
 function getReviewCommentText(entry) {
-  if (entry?.commentHidden) {
+  if (entry && entry.commentHidden) {
     return "Comment hidden";
   }
 
-  return (entry?.comment && entry.comment.trim()) || getDefaultFeedbackComment(entry?.rating);
+  if (entry && entry.comment && entry.comment.trim()) {
+    return entry.comment.trim();
+  }
+
+  return getDefaultFeedbackComment(entry ? entry.rating : 0);
 }
 
 function toggleFeedbackCommentVisibility(feedbackId) {
-  const allFeedback = ["plaridel", "malolos"].flatMap((branchKey) => branchFeedback[branchKey] || []);
-  const targetEntry = allFeedback.find((entry) => Number(entry.feedbackId) === Number(feedbackId));
+  const store = getFeedbackStore();
+  const branchKeys = getBranchKeys();
 
-  if (!targetEntry) return;
+  for (let i = 0; i < branchKeys.length; i++) {
+    const branchEntries = store[branchKeys[i]] || [];
 
-  targetEntry.commentHidden = !Boolean(targetEntry.commentHidden);
-  renderOwnerFeedbackReviews();
-  renderCustomerReviews();
+    for (let j = 0; j < branchEntries.length; j++) {
+      const entry = branchEntries[j];
+      if (Number(entry.feedbackId) === Number(feedbackId)) {
+        entry.commentHidden = !Boolean(entry.commentHidden);
+        renderOwnerFeedbackReviews();
+        renderCustomerReviews();
+        return;
+      }
+    }
+  }
 }
 
-function summarizeFeedbackInsights(feedbackList = []) {
-  const positiveThemes = ["sarap", "fresh", "masarap", "maganda", "friendly", "service", "mabilis", "clean", "ambiance", "quality"];
-  const negativeThemes = ["mahal", "matagal", "pila", "mali", "mainit", "slow", "delay", "issue", "bad", "uncomfortable"];
-
-  const comments = [];
-  for (let i = 0; i < feedbackList.length; i++) {
-    comments.push((feedbackList[i].comment || "").toLowerCase());
+function containsTheme(text, theme) {
+  if (!text || !theme) {
+    return false;
   }
 
-  const findings = {
-    positive: [],
-    negative: [],
-  };
+  const themeLength = theme.length;
+  const textLength = text.length;
 
-  for (let i = 0; i < positiveThemes.length; i++) {
-    const theme = positiveThemes[i];
-    let matches = 0;
+  if (themeLength === 0) {
+    return false;
+  }
 
-    for (let j = 0; j < comments.length; j++) {
-      if (comments[j].includes(theme)) {
-        matches = matches + 1;
+  for (let i = 0; i <= textLength - themeLength; i++) {
+    let matchFound = true;
+
+    for (let j = 0; j < themeLength; j++) {
+      if (text.charAt(i + j) !== theme.charAt(j)) {
+        matchFound = false;
+        break;
       }
     }
 
-    if (matches > 0) {
-      findings.positive.push({ theme, count: matches });
+    if (matchFound) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function summarizeFeedbackInsights(feedbackList) {
+  if (feedbackList === undefined) {
+    feedbackList = [];
+  }
+
+  const positiveThemes = ["sarap", "fresh", "masarap", "maganda", "friendly", "service", "mabilis", "clean", "ambiance", "quality"];
+  const negativeThemes = ["mahal", "matagal", "pila", "mali", "mainit", "slow", "delay", "issue", "bad", "uncomfortable"];
+  const comments = [];
+
+  for (let i = 0; i < feedbackList.length; i++) {
+    comments[i] = (feedbackList[i].comment || "").toLowerCase();
+  }
+
+  const positiveResults = [];
+  const negativeResults = [];
+
+  for (let i = 0; i < positiveThemes.length; i++) {
+    const theme = positiveThemes[i];
+    let matchCount = 0;
+
+    for (let j = 0; j < comments.length; j++) {
+      if (containsTheme(comments[j], theme)) {
+        matchCount = matchCount + 1;
+      }
+    }
+
+    if (matchCount > 0) {
+      positiveResults[positiveResults.length] = { theme: theme, count: matchCount };
     }
   }
 
   for (let i = 0; i < negativeThemes.length; i++) {
     const theme = negativeThemes[i];
-    let matches = 0;
+    let matchCount = 0;
 
     for (let j = 0; j < comments.length; j++) {
-      if (comments[j].includes(theme)) {
-        matches = matches + 1;
+      if (containsTheme(comments[j], theme)) {
+        matchCount = matchCount + 1;
       }
     }
 
-    if (matches > 0) {
-      findings.negative.push({ theme, count: matches });
+    if (matchCount > 0) {
+      negativeResults[negativeResults.length] = { theme: theme, count: matchCount };
     }
   }
 
-  for (let i = 1; i < findings.positive.length; i++) {
-    const current = findings.positive[i];
+  for (let i = 1; i < positiveResults.length; i++) {
+    const current = positiveResults[i];
     let j = i - 1;
 
-    while (j >= 0 && findings.positive[j].count < current.count) {
-      findings.positive[j + 1] = findings.positive[j];
+    while (j >= 0 && positiveResults[j].count < current.count) {
+      positiveResults[j + 1] = positiveResults[j];
       j = j - 1;
     }
 
-    findings.positive[j + 1] = current;
+    positiveResults[j + 1] = current;
   }
 
-  for (let i = 1; i < findings.negative.length; i++) {
-    const current = findings.negative[i];
+  for (let i = 1; i < negativeResults.length; i++) {
+    const current = negativeResults[i];
     let j = i - 1;
 
-    while (j >= 0 && findings.negative[j].count < current.count) {
-      findings.negative[j + 1] = findings.negative[j];
+    while (j >= 0 && negativeResults[j].count < current.count) {
+      negativeResults[j + 1] = negativeResults[j];
       j = j - 1;
     }
 
-    findings.negative[j + 1] = current;
+    negativeResults[j + 1] = current;
   }
 
   return {
-    highlightPositive: findings.positive[0] || { theme: "Positive service", count: 0 },
-    highlightNegative: findings.negative[0] || { theme: "No key concern", count: 0 },
+    highlightPositive: positiveResults[0] || { theme: "Positive service", count: 0 },
+    highlightNegative: negativeResults[0] || { theme: "No key concern", count: 0 },
   };
 }
 
@@ -442,12 +622,20 @@ function renderReviewCards(feedbackList, containerId, overrideList) {
 
   const reviews = filteredReviews;
   const showOwnerControls = containerId === "feedbackRecentReviews";
-  const cards = reviews.map((entry) => {
+  let cardsHtml = "";
+
+  for (let i = 0; i < reviews.length; i++) {
+    const entry = reviews[i];
     const tone = entry.rating >= 4 ? "positive" : entry.rating <= 2 ? "negative" : "neutral";
     const reviewText = getReviewCommentText(entry);
     const commentToggleLabel = entry.commentHidden ? "Show comment" : "Hide comment";
 
-    return `
+    let ownerControlHtml = "";
+    if (showOwnerControls) {
+      ownerControlHtml = '<button type="button" class="review-action-button" data-feedback-id="' + entry.feedbackId + '" data-review-action="toggle-comment-visibility">' + commentToggleLabel + '</button>';
+    }
+
+    cardsHtml = cardsHtml + `
       <article class="review-card ${tone} ${entry.commentHidden ? "comment-hidden" : ""}">
         <div class="review-header">
           <div class="review-avatar">${(entry.branch || "C").charAt(0).toUpperCase()}</div>
@@ -455,21 +643,22 @@ function renderReviewCards(feedbackList, containerId, overrideList) {
             <strong>Customer</strong>
             <span>${entry.branch || "Plaridel"} • ${formatFeedbackDate(entry.date)}</span>
           </div>
-          ${showOwnerControls ? `<button type="button" class="review-action-button" data-feedback-id="${entry.feedbackId}" data-review-action="toggle-comment-visibility">${commentToggleLabel}</button>` : ""}
+          ${ownerControlHtml}
         </div>
         <div class="review-score" aria-label="${entry.rating} out of 5 stars">${getStarDisplay(entry.rating)}</div>
         <p class="review-comment">“${reviewText}”</p>
       </article>
     `;
-  }).join("");
+  }
 
-  const label = overrideList !== undefined ? getOwnerFilterLabel() : (getReviewFilterValue() === "all" ? "All reviews" : `${getReviewFilterValue()}★ reviews`);
+  const label = overrideList !== undefined ? getOwnerFilterLabel() : (getReviewFilterValue() === "all" ? "All reviews" : getReviewFilterValue() + "★ reviews");
+
   container.innerHTML = `
     <div class="review-feed-header">
       <h3>${label}</h3>
       <span>${reviews.length} reviews</span>
     </div>
-    <div class="review-feed-grid">${cards}</div>
+    <div class="review-feed-grid">${cardsHtml}</div>
   `;
 }
 
@@ -481,11 +670,14 @@ function renderCustomerFeedbackSummary(feedbackList) {
   const totalFeedback = stats.totalFeedback || 0;
   const averageRating = totalFeedback ? stats.averageRating : 0;
   const ratingEntries = [5, 4, 3, 2, 1];
+  let distributionHtml = "";
 
-  const distribution = ratingEntries.map((rating) => {
+  for (let i = 0; i < ratingEntries.length; i++) {
+    const rating = ratingEntries[i];
     const count = stats.ratingCounts[rating] || 0;
     const share = totalFeedback ? (count / totalFeedback) * 100 : 0;
-    return `
+
+    distributionHtml = distributionHtml + `
       <div class="summary-breakdown-row">
         <span class="summary-breakdown-label">${rating}★</span>
         <div class="summary-breakdown-track">
@@ -494,7 +686,7 @@ function renderCustomerFeedbackSummary(feedbackList) {
         <span class="summary-breakdown-count">${count}</span>
       </div>
     `;
-  }).join("");
+  }
 
   container.innerHTML = `
     <div class="customer-summary-card">
@@ -518,7 +710,7 @@ function renderCustomerFeedbackSummary(feedbackList) {
         </div>
       </div>
       <div class="summary-breakdown">
-        ${distribution}
+        ${distributionHtml}
       </div>
     </div>
   `;
@@ -544,8 +736,8 @@ function analyzeFeedback(feedbackList) {
 
   for (let i = 0; i < feedbackList.length; i++) {
     const feedback = feedbackList[i];
-    ratingCounts[feedback.rating]++;
-    totalRatingSum += feedback.rating;
+    ratingCounts[feedback.rating] = ratingCounts[feedback.rating] + 1;
+    totalRatingSum = totalRatingSum + feedback.rating;
   }
 
   const totalFeedback = feedbackList.length;
@@ -555,32 +747,42 @@ function analyzeFeedback(feedbackList) {
   const negativeCount = ratingCounts[1] + ratingCounts[2];
 
   return {
-    totalFeedback,
-    averageRating,
-    ratingCounts,
-    positiveCount,
-    neutralCount,
-    negativeCount,
+    totalFeedback: totalFeedback,
+    averageRating: averageRating,
+    ratingCounts: ratingCounts,
+    positiveCount: positiveCount,
+    neutralCount: neutralCount,
+    negativeCount: negativeCount,
   };
 }
 
-function renderFeedbackAnalysis(stats, feedbackList = []) {
+function renderFeedbackAnalysis(stats, feedbackList) {
+  if (feedbackList === undefined) {
+    feedbackList = [];
+  }
+
   const container = document.getElementById("feedbackAnalysisContainer");
   if (!container) return;
 
   const totalFeedback = stats.totalFeedback || 0;
   const ratingEntries = [5, 4, 3, 2, 1];
-  const insights = summarizeFeedbackInsights(feedbackList);
-  const sentimentLabel = totalFeedback === 0 ? "No reviews yet" : stats.averageRating >= 4 ? "Strong positive" : stats.averageRating >= 3 ? "Healthy" : "Needs attention";
+  let ratingRowsHtml = "";
 
-  const ratingRows = ratingEntries.map((rating) => {
+  for (let i = 0; i < ratingEntries.length; i++) {
+    const rating = ratingEntries[i];
     const count = stats.ratingCounts[rating] || 0;
     const width = totalFeedback ? (count / totalFeedback) * 100 : 0;
     let sentiment = "neutral";
-    if (rating >= 4) sentiment = "positive";
-    if (rating <= 2) sentiment = "negative";
 
-    return `
+    if (rating >= 4) {
+      sentiment = "positive";
+    }
+
+    if (rating <= 2) {
+      sentiment = "negative";
+    }
+
+    ratingRowsHtml = ratingRowsHtml + `
       <div class="rating-row" data-sentiment="${sentiment}">
         <span class="rating-label">${rating}★</span>
         <div class="rating-bar-track">
@@ -589,7 +791,7 @@ function renderFeedbackAnalysis(stats, feedbackList = []) {
         <span class="rating-count">${count}</span>
       </div>
     `;
-  }).join("");
+  }
 
   container.innerHTML = `
     <div class="analytics-shell">
@@ -615,7 +817,7 @@ function renderFeedbackAnalysis(stats, feedbackList = []) {
       <div class="data-card">
         <h3>Rating Distribution</h3>
         <div class="rating-list">
-          ${ratingRows}
+          ${ratingRowsHtml}
         </div>
       </div>
 
@@ -677,10 +879,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  document.querySelectorAll(".date-filter-button").forEach((button) => {
+  const dateButtons = document.querySelectorAll(".date-filter-button");
+  for (let i = 0; i < dateButtons.length; i++) {
+    const button = dateButtons[i];
     button.addEventListener("click", () => {
       const group = button.dataset.dateGroup;
-      document.querySelectorAll(`.date-filter-button[data-date-group="${group}"]`).forEach((item) => item.classList.remove("active"));
+      const dateGroupButtons = document.querySelectorAll('.date-filter-button[data-date-group="' + group + '"]');
+
+      for (let j = 0; j < dateGroupButtons.length; j++) {
+        dateGroupButtons[j].classList.remove("active");
+      }
+
       button.classList.add("active");
 
       if (group === "customer") {
@@ -689,21 +898,35 @@ document.addEventListener("DOMContentLoaded", () => {
         renderBranchFeedback();
       }
     });
-  });
+  }
 
-  document.querySelectorAll(".review-filter-button[data-review-filter]").forEach((button) => {
+  const reviewButtons = document.querySelectorAll(".review-filter-button[data-review-filter]");
+  for (let i = 0; i < reviewButtons.length; i++) {
+    const button = reviewButtons[i];
     button.addEventListener("click", () => {
-      document.querySelectorAll(".review-filter-button[data-review-filter]").forEach((item) => item.classList.remove("active"));
+      const reviewFilterButtons = document.querySelectorAll(".review-filter-button[data-review-filter]");
+
+      for (let j = 0; j < reviewFilterButtons.length; j++) {
+        reviewFilterButtons[j].classList.remove("active");
+      }
+
       button.classList.add("active");
       renderCustomerReviews();
     });
-  });
+  }
 
-  document.querySelectorAll(".owner-star-filter").forEach((button) => {
+  const ownerStarButtons = document.querySelectorAll(".owner-star-filter");
+  for (let i = 0; i < ownerStarButtons.length; i++) {
+    const button = ownerStarButtons[i];
     button.addEventListener("click", () => {
-      document.querySelectorAll(".owner-star-filter").forEach((item) => item.classList.remove("active"));
+      const starButtons = document.querySelectorAll(".owner-star-filter");
+
+      for (let j = 0; j < starButtons.length; j++) {
+        starButtons[j].classList.remove("active");
+      }
+
       button.classList.add("active");
       renderBranchFeedback();
     });
-  });
+  }
 });
