@@ -13,8 +13,21 @@ const branchFeedback = {
 };
 
 function getCustomerFeedbackEntry(customerId = "demo-customer", orderId = "completed-order-1") {
-  const allFeedback = Object.values(branchFeedback).flat();
-  return allFeedback.find((feedback) => feedback.customerId === customerId && feedback.orderId === orderId) || null;
+  const branchKeys = Object.keys(branchFeedback);
+
+  for (let i = 0; i < branchKeys.length; i++) {
+    const branchKey = branchKeys[i];
+    const branchEntries = branchFeedback[branchKey] || [];
+
+    for (let j = 0; j < branchEntries.length; j++) {
+      const feedback = branchEntries[j];
+      if (feedback.customerId === customerId && feedback.orderId === orderId) {
+        return feedback;
+      }
+    }
+  }
+
+  return null;
 }
 
 function addCustomerFeedbackEntry(entry, branchKey = "plaridel") {
@@ -57,9 +70,26 @@ function updateCustomerFeedbackEntry(entry, branchKey = "plaridel") {
   }
 
   const targetBranchKey = branchFeedback[branchKey] ? branchKey : "plaridel";
-  const matchedBranchKey = Object.keys(branchFeedback).find((branch) =>
-    (branchFeedback[branch] || []).some((feedback) => feedback.feedbackId === existingReview.feedbackId)
-  ) || "plaridel";
+  let matchedBranchKey = "plaridel";
+  const branchKeys = Object.keys(branchFeedback);
+
+  for (let i = 0; i < branchKeys.length; i++) {
+    const branchKey = branchKeys[i];
+    const branchEntries = branchFeedback[branchKey] || [];
+    let foundReview = false;
+
+    for (let j = 0; j < branchEntries.length; j++) {
+      if (branchEntries[j].feedbackId === existingReview.feedbackId) {
+        matchedBranchKey = branchKey;
+        foundReview = true;
+        break;
+      }
+    }
+
+    if (foundReview) {
+      break;
+    }
+  }
 
   const updatedEntry = {
     ...existingReview,
@@ -103,8 +133,22 @@ window.updateCustomerFeedbackEntry = updateCustomerFeedbackEntry;
 window.getCustomerFeedbackEntry = getCustomerFeedbackEntry;
 
 function getStarDisplay(rating) {
-  const rounded = Math.max(0, Math.min(5, Math.round(rating || 0)));
-  return Array.from({ length: 5 }, (_, index) => (index < rounded ? "★" : "☆")).join("");
+  const value = Number(rating) || 0;
+  let rounded = Math.round(value);
+
+  if (rounded < 0) {
+    rounded = 0;
+  }
+  if (rounded > 5) {
+    rounded = 5;
+  }
+
+  const stars = [];
+  for (let index = 0; index < 5; index++) {
+    stars.push(index < rounded ? "★" : "☆");
+  }
+
+  return stars.join("");
 }
 
 function formatFeedbackDate(dateValue) {
@@ -129,13 +173,19 @@ function getSelectedBranchFeedback() {
   const branchSelect = document.getElementById("branchFilterSelect");
   const selectedBranch = branchSelect ? branchSelect.value : "all";
 
-  if (selectedBranch === "all") {
-    return ["plaridel", "malolos"].reduce((allFeedback, branchKey) => {
-      return allFeedback.concat(branchFeedback[branchKey] || []);
-    }, []);
+  const branchKeys = selectedBranch === "all" ? ["plaridel", "malolos"] : [selectedBranch];
+  const allFeedback = [];
+
+  for (let i = 0; i < branchKeys.length; i++) {
+    const branchKey = branchKeys[i];
+    const branchEntries = branchFeedback[branchKey] || [];
+
+    for (let j = 0; j < branchEntries.length; j++) {
+      allFeedback.push(branchEntries[j]);
+    }
   }
 
-  return branchFeedback[selectedBranch] || branchFeedback.plaridel;
+  return allFeedback;
 }
 
 function getCustomerBranchFeedback() {
@@ -153,9 +203,18 @@ function getCustomerReviewBranchFeedback() {
   const selectedBranch = getCustomerReviewBranchFilterValue();
 
   if (selectedBranch === "all") {
-    return ["plaridel", "malolos"].reduce((allFeedback, branchKey) => {
-      return allFeedback.concat(branchFeedback[branchKey] || []);
-    }, []);
+    const allFeedback = [];
+    const branchKeys = ["plaridel", "malolos"];
+
+    for (let i = 0; i < branchKeys.length; i++) {
+      const branchEntries = branchFeedback[branchKeys[i]] || [];
+
+      for (let j = 0; j < branchEntries.length; j++) {
+        allFeedback.push(branchEntries[j]);
+      }
+    }
+
+    return allFeedback;
   }
 
   return branchFeedback[selectedBranch] || [];
@@ -213,13 +272,20 @@ function getCustomerReviewDateRange() {
 
 function filterFeedbackByDate(feedbackList, dateRange = { start: "", end: "" }) {
   if (!Array.isArray(feedbackList)) return [];
-  const { start, end } = dateRange || { start: "", end: "" };
 
-  return feedbackList.filter((entry) => {
-    if (start && entry.date < start) return false;
-    if (end && entry.date > end) return false;
-    return true;
-  });
+  const { start, end } = dateRange || { start: "", end: "" };
+  const filtered = [];
+
+  for (let i = 0; i < feedbackList.length; i++) {
+    const entry = feedbackList[i];
+    const shouldInclude = !(start && entry.date < start) && !(end && entry.date > end);
+
+    if (shouldInclude) {
+      filtered.push(entry);
+    }
+  }
+
+  return filtered;
 }
 
 function getReviewFilterValue() {
@@ -240,21 +306,27 @@ function getOwnerFilterLabel() {
 
 function getFilteredReviews(feedbackList) {
   const filterValue = getReviewFilterValue();
-  let filtered = [...feedbackList];
+  const filtered = [];
 
-  if (filterValue !== "all") {
-    filtered = filtered.filter((entry) => Number(entry.rating) === Number(filterValue));
+  for (let i = 0; i < feedbackList.length; i++) {
+    const entry = feedbackList[i];
+    if (filterValue === "all" || Number(entry.rating) === Number(filterValue)) {
+      filtered.push(entry);
+    }
   }
 
   return filtered;
 }
 
 function getFilteredOwnerReviews(feedbackList) {
-  let filtered = [...(feedbackList || [])];
   const star = getOwnerStarFilterValue();
+  const filtered = [];
 
-  if (star !== "all") {
-    filtered = filtered.filter((entry) => Number(entry.rating) === Number(star));
+  for (let i = 0; i < (feedbackList || []).length; i++) {
+    const entry = (feedbackList || [])[i];
+    if (star === "all" || Number(entry.rating) === Number(star)) {
+      filtered.push(entry);
+    }
   }
 
   return filtered;
@@ -283,28 +355,69 @@ function summarizeFeedbackInsights(feedbackList = []) {
   const positiveThemes = ["sarap", "fresh", "masarap", "maganda", "friendly", "service", "mabilis", "clean", "ambiance", "quality"];
   const negativeThemes = ["mahal", "matagal", "pila", "mali", "mainit", "slow", "delay", "issue", "bad", "uncomfortable"];
 
-  const comments = feedbackList.map((entry) => (entry.comment || "").toLowerCase());
+  const comments = [];
+  for (let i = 0; i < feedbackList.length; i++) {
+    comments.push((feedbackList[i].comment || "").toLowerCase());
+  }
+
   const findings = {
     positive: [],
     negative: [],
   };
 
-  positiveThemes.forEach((theme) => {
-    const matches = comments.filter((comment) => comment.includes(theme)).length;
+  for (let i = 0; i < positiveThemes.length; i++) {
+    const theme = positiveThemes[i];
+    let matches = 0;
+
+    for (let j = 0; j < comments.length; j++) {
+      if (comments[j].includes(theme)) {
+        matches = matches + 1;
+      }
+    }
+
     if (matches > 0) {
       findings.positive.push({ theme, count: matches });
     }
-  });
+  }
 
-  negativeThemes.forEach((theme) => {
-    const matches = comments.filter((comment) => comment.includes(theme)).length;
+  for (let i = 0; i < negativeThemes.length; i++) {
+    const theme = negativeThemes[i];
+    let matches = 0;
+
+    for (let j = 0; j < comments.length; j++) {
+      if (comments[j].includes(theme)) {
+        matches = matches + 1;
+      }
+    }
+
     if (matches > 0) {
       findings.negative.push({ theme, count: matches });
     }
-  });
+  }
 
-  findings.positive.sort((a, b) => b.count - a.count);
-  findings.negative.sort((a, b) => b.count - a.count);
+  for (let i = 1; i < findings.positive.length; i++) {
+    const current = findings.positive[i];
+    let j = i - 1;
+
+    while (j >= 0 && findings.positive[j].count < current.count) {
+      findings.positive[j + 1] = findings.positive[j];
+      j = j - 1;
+    }
+
+    findings.positive[j + 1] = current;
+  }
+
+  for (let i = 1; i < findings.negative.length; i++) {
+    const current = findings.negative[i];
+    let j = i - 1;
+
+    while (j >= 0 && findings.negative[j].count < current.count) {
+      findings.negative[j + 1] = findings.negative[j];
+      j = j - 1;
+    }
+
+    findings.negative[j + 1] = current;
+  }
 
   return {
     highlightPositive: findings.positive[0] || { theme: "Positive service", count: 0 },

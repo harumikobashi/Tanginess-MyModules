@@ -60,16 +60,31 @@ function analyzeProductSales(orders) {
 
   // Convert the productMap into a plain array so we can sort it.
   // Each entry becomes: { name: "Strawberry", quantity: 3, revenue: 150 }
-  let productArray = Object.keys(productMap).map(name => ({
-    name: name,
-    quantity: productMap[name].quantity,
-    revenue: productMap[name].revenue,
-  }));
+  const productNames = Object.keys(productMap);
+  const productArray = [];
+
+  for (let i = 0; i < productNames.length; i++) {
+    const name = productNames[i];
+    productArray.push({
+      name: name,
+      quantity: productMap[name].quantity,
+      revenue: productMap[name].revenue,
+    });
+  }
 
   // SORTING: arrange products from highest revenue to lowest.
-  // This is a simple comparison-based sort (JavaScript's built-in sort,
-  // which behaves like an efficient version of bubble/merge sort under the hood).
-  productArray.sort((a, b) => b.revenue - a.revenue);
+  // This manual insertion sort keeps the same result without using the built-in sort method.
+  for (let i = 1; i < productArray.length; i++) {
+    const currentItem = productArray[i];
+    let j = i - 1;
+
+    while (j >= 0 && productArray[j].revenue < currentItem.revenue) {
+      productArray[j + 1] = productArray[j];
+      j = j - 1;
+    }
+
+    productArray[j + 1] = currentItem;
+  }
 
   // Add rank (1st, 2nd, 3rd...) based on the sorted order.
   for (let i = 0; i < productArray.length; i++) {
